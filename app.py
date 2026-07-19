@@ -7,9 +7,11 @@ from ui.sidebar import render_sidebar
 from ui.chat import display_messages
 from ui.pdf_manager import process_pdf
 from memory.chat_memory import ChatMemory
+from workspace.project_manager import ProjectManager
 
 load_dotenv()
 memory = ChatMemory()
+project_manager = ProjectManager()
 
 st.set_page_config(
     page_title="AI Research Assistant",
@@ -33,10 +35,23 @@ if "messages" not in st.session_state:
     st.session_state.messages = memory.load_messages(
         st.session_state.session_id
     )
+    
+if "project_id" not in st.session_state:
+    st.session_state.project_id = None
+
+if "project_name" not in st.session_state:
+    st.session_state.project_name = None
+    
 # if "vector_store" not in st.session_state:
 #     st.session_state.vector_store = None
 
-model_name, temperature, max_results, uploaded_pdf = render_sidebar()
+(
+    model_name,
+    temperature,
+    max_results,
+    uploaded_pdf,
+    project_id,
+) = render_sidebar()
 
 process_pdf(uploaded_pdf)
 
@@ -44,19 +59,26 @@ st.title("🔬 AI Research Assistant")
 
 display_messages()
 
-
 @st.cache_resource
-def load_agent():
-
+def load_agent(
+    model,
+    temp,
+    results,
+    project_id,
+):
     return create_research_agent(
-        model_name,
-        temperature,
-        max_results,
+        model,
+        temp,
+        results,
+        project_id,
     )
 
-
-agent = load_agent()
-
+agent = load_agent(
+    model_name,
+    temperature,
+    max_results,
+    st.session_state.project_id,
+)
 question = st.chat_input("Ask a research question...")
 
 if question:
