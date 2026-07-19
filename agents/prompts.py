@@ -44,6 +44,16 @@ A concise explanation.
 - Wikipedia
 - ArXiv
 - Tavily Search
+• PDF Search
+    - Use this tool whenever the question refers to:
+        • uploaded documents
+        • "this paper"
+        • "this PDF"
+        • "uploaded file"
+        • document summaries
+        • document-specific questions
+
+Always prefer PDF Search when the user asks about an uploaded document.
 
 If a source was not used, do not include it.
 """

@@ -2,11 +2,14 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from agents.research_agent import create_research_agent
-import os
+
+from ui.sidebar import render_sidebar
+from ui.chat import display_messages
+from ui.pdf_manager import process_pdf
+from memory.chat_memory import ChatMemory
 
 load_dotenv()
-
-# ------------------ PAGE CONFIG ------------------ #
+memory = ChatMemory()
 
 st.set_page_config(
     page_title="AI Research Assistant",
@@ -14,205 +17,79 @@ st.set_page_config(
     layout="wide",
 )
 
-# ------------------ SESSION STATE ------------------ #
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
 if "research_history" not in st.session_state:
     st.session_state.research_history = []
 
-if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = []
+if "session_id" not in st.session_state:
 
-if "vector_store" not in st.session_state:
-    st.session_state.vector_store = None
-
-
-# ------------------ SIDEBAR ------------------ #
-
-with st.sidebar:
-
-    st.title("🔬 AI Research Assistant")
-
-    st.markdown("---")
-
-    st.subheader("⚙️ Model Settings")
-
-    model_name = st.selectbox(
-        "Groq Model",
-        [
-            "llama-3.3-70b-versatile",
-            "mixtral-8x7b-32768",
-            "gemma2-9b-it",
-        ],
+    st.session_state.session_id = (
+        memory.create_session()
     )
 
-    temperature = st.slider(
-        "Temperature",
-        0.0,
-        1.0,
-        0.2,
-        0.1,
+if "messages" not in st.session_state:
+
+    st.session_state.messages = memory.load_messages(
+        st.session_state.session_id
     )
+# if "vector_store" not in st.session_state:
+#     st.session_state.vector_store = None
 
-    max_results = st.slider(
-        "Maximum Search Results",
-        1,
-        10,
-        3,
-    )
+model_name, temperature, max_results, uploaded_pdf = render_sidebar()
 
-    st.markdown("---")
-
-    st.subheader("📊 Statistics")
-
-    st.metric("Messages", len(st.session_state.messages))
-    st.metric("Research Sessions", len(st.session_state.research_history))
-    st.metric("Tools", "3")
-
-    st.markdown("---")
-
-    if st.button("🗑️ Clear Chat", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
-
-    uploaded_pdf = st.file_uploader(
-        "Upload Research PDF",
-        type=["pdf"],
-    )
-
-    st.button(
-        "🗃️ Research History (Coming Soon)",
-        disabled=True,
-        use_container_width=True,
-    )
-
-# ------------------ MAIN PAGE ------------------ #
+process_pdf(uploaded_pdf)
 
 st.title("🔬 AI Research Assistant")
 
-st.caption(
-    "Powered by Groq • LangChain • Wikipedia • ArXiv • Tavily"
-)
+display_messages()
 
-
-if uploaded_pdf:
-
-
-    os.makedirs("uploads", exist_ok=True)
-
-    pdf_path = os.path.join(
-        "uploads",
-        uploaded_pdf.name,
-    )
-
-    with open(pdf_path, "wb") as f:
-        f.write(uploaded_pdf.getbuffer())
-
-    st.success("PDF uploaded successfully!")
-# ------------------ LOAD AGENT ------------------ #
 
 @st.cache_resource
-def load_agent(model, temp, results):
+def load_agent():
+
     return create_research_agent(
-        model,
-        temp,
-        results,
+        model_name,
+        temperature,
+        max_results,
     )
 
-agent = load_agent(
-    model_name,
-    temperature,
-    max_results,
-)
 
-# ------------------ WELCOME SCREEN ------------------ #
+agent = load_agent()
 
-if len(st.session_state.messages) == 0:
-
-    st.info(
-        """
-### 👋 Welcome!
-
-I can help you research information using:
-
-- 📚 Wikipedia
-- 📄 ArXiv Research Papers
-- 🌐 Live Web Search
-- 🧠 AI Summarization
-
-#### Try asking:
-
-- What is Retrieval-Augmented Generation?
-- Latest Transformer research papers
-- History of Artificial Intelligence
-- Compare GPT-4 and Gemini
-"""
-    )
-
-# ------------------ CHAT HISTORY ------------------ #
-
-for message in st.session_state.messages:
-
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# ------------------ CHAT INPUT ------------------ #
-
-question = st.chat_input(
-    "Ask me anything..."
-)
+question = st.chat_input("Ask a research question...")
 
 if question:
 
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": question,
-        }
+    memory.save_user_message(
+        st.session_state.session_id,
+        question,
     )
 
-    with st.chat_message("user"):
-        st.markdown(question)
+    st.session_state.messages = memory.load_messages(
+        st.session_state.session_id
+    )
 
     with st.chat_message("assistant"):
 
-        with st.spinner(
-            "🔍 Searching Wikipedia, ArXiv and the Web..."
-        ):
+        with st.spinner("Researching..."):
 
-            try:
+            response = agent.invoke(
+                {
+                    "input": question,
+                    "chat_history": [],
+                }
+            )
 
-                response = agent.invoke(
-                    {
-                        "input": question,
-                        "chat_history": []
-                    }
-                )
+            answer = response["output"]
 
-                answer = response["output"]
+            st.markdown(answer)
 
-                st.markdown(answer)
+            memory.save_ai_message(
+                st.session_state.session_id,
+                answer,
+            )
 
-                st.session_state.messages.append(
-                    {
-                        "role": "assistant",
-                        "content": answer,
-                    }
-                )
-
-                st.session_state.research_history.append(question)
-
-            except Exception as e:
-
-                st.error("❌ Something went wrong.")
-                st.exception(e)
-
-# ------------------ FOOTER ------------------ #
-
-st.markdown("---")
-
-st.caption(
-    "🚀 AI Research Assistant v1.0 | Built with Streamlit, Groq, LangChain, Wikipedia, ArXiv and Tavily"
-)
+            st.session_state.messages = memory.load_messages(
+                st.session_state.session_id
+            )

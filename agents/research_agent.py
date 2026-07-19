@@ -8,7 +8,7 @@ from agents.prompts import get_prompt
 from tools.wikipedia_tool import get_wikipedia_tool
 from tools.tavily_tool import get_tavily_tool
 from tools.arxiv_tool import get_arxiv_tool
-
+from tools.pdf_tool import pdf_search
 def create_research_agent(
     model_name,
     temperature,
@@ -27,7 +27,9 @@ def create_research_agent(
     tools = [
         wiki_tool,
         tavily_tool,
-        arxiv_tool
+        arxiv_tool,
+        pdf_search,
+
     ]
 
     prompt = get_prompt()
