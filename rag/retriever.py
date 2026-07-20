@@ -1,69 +1,58 @@
-# # # def get_retriever(vector_store):
-
-# # #     return vector_store.as_retriever(
-# # #         search_kwargs={
-# # #             "k": 4
-# # #         }
-# # #     )
-    
-# # # def retrieve_documents(vector_store, query):
-
-# # #     docs = vector_store.similarity_search(
-# # #         query,
-# # #         k=3,
-# # #     )
-
-# # #     return docs
-
-
-# # from database.chromadb_manager import ChromaDBManager
-
-
-# # def retrieve_documents(
-# #     query,
-# #     k=3,
-# # ):
-
-# #     manager = ChromaDBManager()
-
-# #     return manager.similarity_search(
-# #         query,
-# #         k,
-# #     )
-
-
-# from langchain_chroma import Chroma
-
-# from rag.embeddings import get_embeddings
-
-
-# def retrieve_documents(query: str, k: int = 4):
-
-#     vector_store = Chroma(
-#         persist_directory="chroma_db",
-#         embedding_function=get_embeddings(),
-#     )
-
-#     docs = vector_store.similarity_search(
-#         query,
-#         k=k,
-#     )
-
-#     return docs
-
-
 from database.chromadb_manager import ChromaDBManager
 
 
 def retrieve_documents(
-    project_id,
-    query,
-    k=4,
+    project_id: str,
+    query: str,
+    k: int = 4,
 ):
+    """
+    Retrieve the most relevant documents from the project's ChromaDB.
+    """
 
     manager = ChromaDBManager(project_id)
 
     return manager.similarity_search(
         query=query,
         k=k,
+    )
+
+
+# --------------------------------------------------
+
+
+def format_documents(docs):
+    """
+    Format retrieved documents before sending them to the LLM.
+    Includes metadata for proper source attribution.
+    """
+
+    if not docs:
+        return "No relevant information found."
+
+    formatted_docs = []
+
+    for doc in docs:
+
+        metadata = doc.metadata or {}
+
+        source = metadata.get("source", "Unknown")
+
+        filename = metadata.get("filename", "Unknown")
+
+        page = metadata.get("page", "N/A")
+
+        formatted_docs.append(
+            f"""
+Source: {source}
+Filename: {filename}
+Page: {page}
+
+Content:
+{doc.page_content}
+"""
+        )
+
+    return "\n\n------------------------------\n\n".join(
+        formatted_docs
     )

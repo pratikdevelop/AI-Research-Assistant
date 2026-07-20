@@ -18,13 +18,7 @@ class ChromaDBManager:
             )
         )
 
-    def create_vector_store(self, documents):
-
-        return Chroma.from_documents(
-            documents=documents,
-            embedding=self.embeddings,
-            persist_directory=self.persist_directory,
-        )
+    # --------------------------------------
 
     def load_vector_store(self):
 
@@ -33,13 +27,35 @@ class ChromaDBManager:
             embedding_function=self.embeddings,
         )
 
+    # --------------------------------------
+
+    def add_documents(self, documents):
+
+        vector_store = self.load_vector_store()
+
+        vector_store.add_documents(documents)
+
+        return vector_store
+
+    # --------------------------------------
+
     def similarity_search(
         self,
         query,
         k=4,
     ):
 
-        return self.load_vector_store().similarity_search(
+        vector_store = self.load_vector_store()
+
+        return vector_store.similarity_search(
             query=query,
             k=k,
         )
+
+    # --------------------------------------
+
+    def delete_collection(self):
+
+        vector_store = self.load_vector_store()
+
+        vector_store.delete_collection()

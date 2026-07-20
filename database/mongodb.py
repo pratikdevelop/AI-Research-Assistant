@@ -1,11 +1,8 @@
-import os
 from datetime import datetime
 from bson import ObjectId
-from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
-
-load_dotenv()
+from config import settings
 
 
 class MongoDBManager:
@@ -13,7 +10,7 @@ class MongoDBManager:
     def __init__(self):
 
         self.client = MongoClient(
-            os.getenv("MONGODB_URI"),
+            settings.MONGODB_URI,
             serverSelectionTimeoutMS=5000,
         )
 
@@ -28,8 +25,9 @@ class MongoDBManager:
 
         # Database
         self.db = self.client[
-            os.getenv("DATABASE_NAME")
+            settings.DATABASE_NAME
         ]
+
 
         # Collections
         self.chat_collection = self.db["chats"]
@@ -37,6 +35,7 @@ class MongoDBManager:
         self.history_collection = self.db["research_history"]
 
         self.projects_collection = self.db["projects"]
+        self.pdf_collection = self.db["pdfs"]
     # ----------------------------
 
     def save_message(
@@ -217,3 +216,81 @@ class MongoDBManager:
             del project["_id"]
 
         return project
+    
+    def save_pdf(
+        self,
+        project_id,
+        filename,
+        pages,
+        chunks,
+        file_size,
+    ):
+
+        self.pdf_collection.insert_one(
+            {
+                "project_id": project_id,
+                "filename": filename,
+                "pages": pages,
+                "chunks": chunks,
+                "file_size": file_size,
+                "uploaded_at": datetime.utcnow(),
+            }
+        )
+        
+    def get_project_pdfs(
+        self,
+        project_id,
+    ):
+
+        return list(
+
+            self.pdf_collection.find(
+
+                {
+                    "project_id": project_id
+                }
+
+            ).sort(
+                "uploaded_at",
+                -1
+            )
+
+        )
+        
+    def pdf_exists(
+        self,
+        project_id,
+        filename,
+    ):
+
+        pdf = self.pdf_collection.find_one(
+
+            {
+
+                "project_id": project_id,
+
+                "filename": filename
+
+            }
+
+        )
+
+        return pdf is not None
+    
+    def delete_pdf(
+        self,
+        project_id,
+        filename,
+    ):
+
+        self.pdf_collection.delete_one(
+
+            {
+
+                "project_id": project_id,
+
+                "filename": filename
+
+            }
+
+        )

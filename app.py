@@ -53,7 +53,7 @@ if "project_name" not in st.session_state:
     project_id,
 ) = render_sidebar()
 
-process_pdf(uploaded_pdf)
+process_pdf(uploaded_pdf, project_id,)
 
 st.title("🔬 AI Research Assistant")
 
